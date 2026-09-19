@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asta Fantacalcio</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root{
+  --pitch-dark: #0B241B; --pitch: #123626; --pitch-light: #17492F; --card: #14352A; --line: #244A38;
+  --chalk: #F4F1E6; --muted: #90AC9C; --gold: #F2B705; --amber: #E68A1F; --red: #D8412F;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background: radial-gradient(ellipse at 50% -10%, var(--pitch-light), var(--pitch-dark) 70%);
+  color: var(--chalk); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; padding: 24px 16px 60px;
+}
+.wrap{ max-width: 980px; margin: 0 auto; }
+h1,h2,h3{ font-family:'Bebas Neue', sans-serif; letter-spacing: 0.5px; font-weight: 400; }
+.title{ font-size: clamp(34px, 6vw, 54px); text-align:center; color: var(--chalk); margin-bottom: 4px; }
+.subtitle{ text-align:center; color: var(--muted); font-size: 14px; margin-bottom: 28px; max-width: 580px; margin-left:auto; margin-right:auto; line-height:1.5; }
+.card{ background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-bottom: 18px; }
+.card h2{ font-size: 22px; margin-bottom: 14px; color: var(--gold); }
+label{ display:block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+input[type=text], input[type=number], select{
+  width:100%; background: var(--pitch-dark); border: 1px solid var(--line); color: var(--chalk);
+  padding: 10px 12px; border-radius: 8px; font-size: 15px; font-family: inherit;
+}
+input:focus, select:focus{ outline: 2px solid var(--gold); outline-offset: 1px; }
+.row{ display:flex; gap:12px; flex-wrap:wrap; }
+.row > div{ flex:1; min-width: 140px; }
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  background: var(--gold); color: #1A1A1A; border:none; padding: 12px 22px; border-radius: 9px;
+  font-weight: 700; font-size: 15px; cursor:pointer; transition: transform .08s ease, background .15s ease;
+}
+.btn:hover{ background:#FFC72C; }
+.btn:active{ transform: scale(.97); }
+.btn.secondary{ background: transparent; border: 1px solid var(--line); color: var(--chalk); }
+.btn.secondary:hover{ border-color: var(--gold); color:var(--gold); }
+.btn.danger{ background: var(--red); color: var(--chalk); }
+.btn:disabled{ opacity:.35; cursor:not-allowed; }
+
+.role-select-grid{ display:flex; gap:14px; flex-wrap:wrap; }
+.role-card{ flex:1; min-width:220px; border:2px solid var(--line); background:var(--pitch-dark); border-radius:14px; padding:22px; cursor:pointer; text-align:center; transition: border-color .15s ease; }
+.role-card:hover{ border-color: var(--gold); }
+.role-card .emoji{ font-size:34px; margin-bottom:8px; }
+.role-card h3{ font-size:22px; margin-bottom:6px; }
+.role-card p{ font-size:13px; color:var(--muted); line-height:1.5; }
+
+.mode-grid{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom: 6px; }
+.mode-card{ flex:1; min-width: 220px; border: 2px solid var(--line); background: var(--pitch-dark); border-radius: 12px; padding: 16px; cursor:pointer; }
+.mode-card.active{ border-color: var(--gold); background: rgba(242,183,5,0.07); }
+.mode-card h3{ font-size:20px; margin-bottom:6px; color:var(--chalk); }
+.mode-card p{ font-size:13px; color:var(--muted); line-height:1.5; }
+
+.teamcount-grid{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+.teamcount-grid button{ width:44px; height:44px; border-radius:8px; border:1px solid var(--line); background: var(--pitch-dark); color:var(--chalk); font-family:'Bebas Neue'; font-size:18px; cursor:pointer; }
+.teamcount-grid button.active{ background: var(--gold); color:#1A1A1A; border-color: var(--gold); }
+.team-setup-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; background: var(--pitch-dark); padding: 8px 10px; border-radius:8px; }
+.swatch{ width:28px; height:28px; border-radius:6px; flex-shrink:0; }
+.key-badge{ width:28px; height:28px; border-radius:6px; background:var(--pitch); display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:14px; color:var(--muted); border:1px solid var(--line); flex-shrink:0; }
+.team-setup-row input{ flex:1; }
+
+#live{ display:none; }
+.top-bar{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 18px; flex-wrap:wrap; gap:10px; }
+.mode-tag{ display:inline-block; font-size:12px; padding:4px 10px; border-radius:20px; background: var(--pitch-dark); border:1px solid var(--line); color: var(--gold); margin-left:8px; }
+.online-banner{ display:none; font-size:13px; color:var(--muted); background:var(--pitch-dark); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:16px; line-height:1.5; }
+.conn-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--red); margin-right:6px; }
+.conn-dot.ok{ background:#3FCF7F; }
+.stage{
+  position:relative; background: radial-gradient(circle at 50% 30%, rgba(242,183,5,0.10), transparent 60%), var(--pitch);
+  border:1px solid var(--line); border-radius: 18px; padding: 30px 20px; text-align:center; margin-bottom: 20px; overflow:hidden;
+}
+.role-badge{ display:inline-block; font-size: 12px; letter-spacing: 1px; color: var(--pitch-dark); background: var(--muted); padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; font-weight: 700; }
+.player-name{ font-family:'Bebas Neue'; font-size: clamp(28px, 5vw, 42px); color: var(--chalk); margin-bottom: 6px; min-height: 44px; }
+.price{ font-family:'Bebas Neue'; font-size: clamp(90px, 22vw, 160px); line-height: 1; transition: color .15s ease, transform .08s ease; color: var(--gold); }
+.price.urgent{ color: var(--amber); }
+.price.critical{ color: var(--red); animation: pulse .5s infinite; }
+@keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.04);} }
+.price-label{ font-size:13px; color:var(--muted); letter-spacing:1px; margin-top:-6px;}
+.leader-line{ font-size:16px; margin-top:10px; min-height:22px; font-weight:600; }
+.timer-track{ height:10px; background: var(--pitch-dark); border-radius:6px; margin-top:16px; overflow:hidden; display:none; }
+.timer-fill{ height:100%; background: var(--gold); width:100%; transition: width .1s linear, background .2s ease; }
+.stage-actions{ margin-top:18px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.sold-banner{ display:none; font-family:'Bebas Neue'; font-size: clamp(26px,5vw,40px); margin-top: 14px; padding: 10px; border-radius:10px; }
+.unsold-banner{ display:none; font-size:15px; color: var(--muted); margin-top:14px; }
+
+.setup-player{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:16px; }
+.setup-player > div{ flex:1; min-width:120px; }
+.role-picker{ display:flex; gap:6px; }
+.role-picker button{ flex:1; padding:10px; border-radius:8px; border:1px solid var(--line); background: var(--pitch-dark); color:var(--chalk); cursor:pointer; font-weight:600; font-size:14px; }
+.role-picker button.active{ background: var(--gold); color:#1A1A1A; border-color:var(--gold); }
+
+.teams-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 12px; margin-bottom: 20px; }
+.team-card{ border-radius: 12px; padding: 14px; cursor:pointer; border: 2px solid var(--line); background: var(--card); transition: transform .08s ease, box-shadow .15s ease, border-color .15s ease; position:relative; }
+.team-card:hover{ transform: translateY(-2px); }
+.team-card.invalid{ opacity:.4; cursor:not-allowed; }
+.team-card.leading{ box-shadow: 0 0 0 2px var(--gold) inset; }
+.team-card.flash{ animation: flash .5s ease; }
+@keyframes flash{ 0%{ box-shadow:0 0 0 6px var(--flash-color, var(--gold)); } 100%{ box-shadow:0 0 0 0 transparent; } }
+.team-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.team-card-name{ font-weight:700; font-size:15px; }
+.team-card-budget{ font-family:'Bebas Neue'; font-size:22px; color:var(--gold); }
+.team-card-slots{ font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
+.slot-pill{ background: var(--pitch-dark); border-radius:6px; padding:2px 7px; }
+
+.log-panel{ max-height: 220px; overflow-y:auto; }
+.log-row{ display:flex; justify-content:space-between; font-size:13px; padding: 7px 4px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.log-row span.pname{ color: var(--chalk); }
+.small-note{ font-size:12px; color:var(--muted); margin-top:6px; }
+.help-toggle{ font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer; background:none; border:none; }
+.helpbox{ display:none; font-size:13px; line-height:1.6; color:var(--muted); margin-top:10px; }
+.back-link{ font-size:12px; color:var(--muted); text-decoration:underline; background:none; border:none; cursor:pointer; margin-bottom:14px; display:inline-block; }
+
+.summary-table{ width:100%; border-collapse: collapse; font-size:14px; }
+.summary-table th, .summary-table td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+.summary-table th{ color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.5px;}
+.mute-btn{ background:none; border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:13px; }
+
+.phone-wrap{ max-width:420px; margin:0 auto; text-align:center; }
+.phone-team-btn{ display:block; width:100%; padding:16px; margin-bottom:10px; border-radius:12px; border:2px solid var(--line); background:var(--pitch-dark); color:var(--chalk); font-weight:700; font-size:16px; cursor:pointer; }
+.big-buzz{
+  width:100%; max-width:260px; aspect-ratio:1/1; margin:20px auto; border-radius:50%; border:none;
+  font-family:'Bebas Neue'; font-size:32px; color:#fff; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; box-shadow:0 8px 0 rgba(0,0,0,0.35); transition: transform .06s ease, box-shadow .06s ease;
+}
+.big-buzz:active{ transform: translateY(6px); box-shadow:0 2px 0 rgba(0,0,0,0.35); }
+.big-buzz:disabled{ opacity:.35; box-shadow:none; cursor:not-allowed; }
+.phone-status{ font-size:13px; color:var(--muted); margin-top:10px; min-height:18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="title" id="pageTitle">⚡ Asta Fantacalcio</div>
+  <div class="subtitle" id="pageSubtitle">Scegli come vuoi partecipare.</div>
+
+  <!-- ROLE SELECT -->
+  <div id="roleSelect">
+    <div class="card">
+      <h2>Come partecipi?</h2>
+      <div class="role-select-grid">
+        <div class="role-card" id="roleSingle">
+          <div class="emoji">🖥️</div><h3>Un solo schermo</h3>
+          <p>Tutti intorno a un unico PC o TV, con tastiera condivisa (Q, W, E...).</p>
+        </div>
+        <div class="role-card" id="roleHost">
+          <div class="emoji">📺</div><h3>Banditore — PC/TV</h3>
+          <p>Questo schermo guida l'asta. Ogni allenatore si collega dal proprio telefono per fare i rilanci.</p>
+        </div>
+        <div class="role-card" id="rolePhone">
+          <div class="emoji">📱</div><h3>Allenatore — telefono</h3>
+          <p>Ti colleghi all'asta condotta da qualcun altro, per suonare dal tuo telefono.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETUP -->
+  <div id="setup" style="display:none;">
+    <button class="back-link" id="setupBackLink">← cambia modalità</button>
+
+    <div class="card">
+      <h2>Modalità d'asta</h2>
+      <div class="mode-grid">
+        <div class="mode-card active" id="modeLampoCard">
+          <h3>⚡ Lampo</h3><p>Il prezzo parte alto e scende. Il primo che suona se lo aggiudica a quel prezzo.</p>
+        </div>
+        <div class="mode-card" id="modeNormaleCard">
+          <h3>📢 Normale</h3><p>Rilanci classici: ogni "suonata" alza il prezzo e resetta un timer breve.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Squadre</h2>
+      <label>Quante squadre partecipano?</label>
+      <div class="teamcount-grid" id="teamCountGrid"></div>
+      <div id="teamNamesList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Regole d'asta</h2>
+      <div class="row">
+        <div><label>Budget iniziale a squadra (crediti)</label><input type="number" id="budgetInput" value="500" min="1"></div>
+        <div>
+          <label id="speedLabel">Velocità del countdown</label>
+          <select id="speedInput">
+            <option value="180">Lenta — più tempo per decidere</option>
+            <option value="100" selected>Media — consigliata</option>
+            <option value="55">Veloce — solo riflessi</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" id="incrementRow" style="display:none; margin-top:14px;">
+        <div><label>Rilancio minimo (crediti)</label><input type="number" id="incrementInput" value="1" min="1"></div>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <div><label>Portieri (P)</label><input type="number" id="slotP" value="3" min="0"></div>
+        <div><label>Difensori (D)</label><input type="number" id="slotD" value="8" min="0"></div>
+        <div><label>Centrocampisti (C)</label><input type="number" id="slotC" value="8" min="0"></div>
+        <div><label>Attaccanti (A)</label><input type="number" id="slotA" value="6" min="0"></div>
+      </div>
+      <button class="help-toggle" id="helpToggle" style="margin-top:14px;">Come funziona, in dettaglio →</button>
+      <div class="helpbox" id="helpBoxLampo">
+        Il banditore digita nome e ruolo del giocatore chiamato a voce e un prezzo di partenza, poi preme "Via!".
+        Il numero grande scende verso 1. Chi suona per primo se lo aggiudica al prezzo mostrato in quel momento.
+      </div>
+      <div class="helpbox" id="helpBoxNormale">
+        Il banditore digita nome, ruolo e prezzo minimo, poi preme "Via!". Parte un timer breve. Ogni rilancio
+        alza il prezzo e resetta il timer. Se il timer scade, il giocatore va alla squadra in testa.
+      </div>
+    </div>
+
+    <div class="card" id="onlineNote" style="display:none;">
+      <h2>Modalità condivisa</h2>
+      <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+        Dopo aver avviato l'asta, manda lo <strong>stesso link</strong> di questa pagina a ogni allenatore
+        (email, WhatsApp, come preferisci). Apriranno il link, sceglieranno "Allenatore — telefono" e poi
+        la propria squadra. Da quel momento potranno suonare in tempo reale dal loro telefono.
+      </p>
+      <button class="btn secondary" id="wipeDataBtn" style="margin-top:10px;">🗑️ Pulisci dati di un'asta precedente</button>
+    </div>
+
+    <div style="text-align:center;">
+      <button class="btn" id="startAuctionBtn" style="font-size:18px; padding:14px 34px;">Inizia l'asta →</button>
+    </div>
+  </div>
+
+  <!-- LIVE -->
+  <div id="live">
+    <div class="top-bar">
+      <div>
+        <strong id="progressLabel" style="font-size:14px; color:var(--muted);"></strong>
+        <span class="mode-tag" id="modeTag"></span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="mute-btn" id="muteBtn">🔊 Audio</button>
+        <button class="btn secondary" id="endAuctionBtn">Termina asta</button>
+      </div>
+    </div>
+
+    <div class="online-banner" id="onlineBanner"></div>
+
+    <div class="card">
+      <div class="setup-player">
+        <div><label>Nome giocatore</label><input type="text" id="playerNameInput" placeholder="es. Osimhen" autocomplete="off"></div>
+        <div style="max-width:220px;">
+          <label>Ruolo</label>
+          <div class="role-picker" id="rolePicker">
+            <button data-role="P">P</button><button data-role="D">D</button>
+            <button data-role="C">C</button><button data-role="A">A</button>
+          </div>
+        </div>
+        <div style="max-width:150px;"><label id="startPriceLabel">Prezzo partenza</label><input type="number" id="startPriceInput" value="20" min="1"></div>
+        <div style="max-width:140px;"><button class="btn" id="viaBtn" style="width:100%;">Via! ⚡</button></div>
+      </div>
+      <div class="small-note">Puoi anche premere <strong>Invio</strong> nel campo nome per avviare subito.</div>
+    </div>
+
+    <div class="stage">
+      <div class="role-badge" id="stageRole">—</div>
+      <div class="player-name" id="stagePlayerName">In attesa del prossimo giocatore…</div>
+      <div class="price" id="stagePrice">—</div>
+      <div class="price-label">CREDITI</div>
+      <div class="leader-line" id="leaderLine"></div>
+      <div class="timer-track" id="timerTrack"><div class="timer-fill" id="timerFill"></div></div>
+      <div class="sold-banner" id="soldBanner"></div>
+      <div class="unsold-banner" id="unsoldBanner">Nessuno se lo aggiudica. Rilancia con un altro prezzo, oppure segna come invenduto.</div>
+      <div class="stage-actions" id="unsoldActions" style="display:none;">
+        <button class="btn secondary" id="retryBtn">Riprova da un prezzo diverso</button>
+        <button class="btn danger" id="markUnsoldBtn">Segna invenduto</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Squadre — premi il tasto o clicca per <span id="actionVerb">aggiudicarti</span> il giocatore</h2>
+      <div class="teams-grid" id="teamsGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Registro assegnazioni</h2>
+      <div class="log-panel" id="logPanel"><div class="small-note">Ancora nessuna assegnazione.</div></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div id="summary" style="display:none;">
+    <div class="card">
+      <h2>Riepilogo asta</h2>
+      <div id="summaryContent"></div>
+      <div style="text-align:center; margin-top:18px;"><button class="btn secondary" id="restartBtn">Nuova asta</button></div>
+    </div>
+  </div>
+
+  <!-- PHONE: WAIT -->
+  <div id="phoneWait" style="display:none;">
+    <div class="phone-wrap">
+      <button class="back-link" id="phoneWaitBack">← cambia modalità</button>
+      <div class="card">
+        <h2>In attesa del banditore…</h2>
+        <p class="phone-status"><span class="conn-dot" id="connDotWait"></span>Assicurati che sul PC/TV sia stata avviata l'asta. Questa pagina si aggiorna da sola.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE: TEAM SELECT -->
+  <div id="phoneTeamSelect" style="display:none;">
+    <div class="phone-wrap">
+      <div class="card"><h2>Quale squadra sei?</h2><div id="phoneTeamButtons"></div></div>
+    </div>
+  </div>
+
+  <!-- PHONE: BUZZER -->
+  <div id="phoneBuzzer" style="display:none;">
+    <div class="phone-wrap">
+      <div class="card">
+        <div class="team-card-name" id="phoneTeamName" style="font-size:20px;"></div>
+        <div class="team-card-budget" id="phoneBudget" style="font-size:30px;"></div>
+        <div class="team-card-slots" id="phoneSlots" style="justify-content:center; margin-top:6px;"></div>
+      </div>
+      <div class="card">
+        <div class="role-badge" id="phoneRoundRole">—</div>
+        <div class="player-name" id="phoneRoundPlayer">In attesa del prossimo giocatore…</div>
+        <div class="price" id="phonePrice" style="font-size:clamp(60px,20vw,100px);">—</div>
+        <div class="leader-line" id="phoneLeaderLine"></div>
+        <div class="timer-track" id="phoneTimerTrack"><div class="timer-fill" id="phoneTimerFill"></div></div>
+        <button class="big-buzz" id="phoneBuzzBtn" disabled>SUONA</button>
+        <div class="phone-status" id="phoneFeedback"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------- Firebase ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyBfUItNv_pJ7mBjLxcImNaYYa1XZUAVUiE",
+  authDomain: "test-asta1.firebaseapp.com",
+  projectId: "test-asta1",
+  storageBucket: "test-asta1.firebasestorage.app",
+  messagingSenderId: "71976110775",
+  appId: "1:71976110775:web:e88280b3913943fa209b32"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const configRef = db.ref('asta/config');
+const teamsRef = db.ref('asta/teams');
+const roundRef = db.ref('asta/round');
+const logRef = db.ref('asta/log');
+function buzzRef(roundId){ return db.ref('asta/buzz/' + roundId); }
+
+const PALETTE = ['#E4572E','#29A388','#4C6EF5','#F2B705','#B24C9C','#06AED5','#DB2763','#7B9E3F','#FF8552','#5C6B73'];
+const KEYS = ['Q','W','E','R','T','Y','U','I','O','P'];
+const ROLE_NAMES = {P:'Portiere', D:'Difensore', C:'Centrocampista', A:'Attaccante'};
+const NORMALE_DURATION = {180:8000, 100:5000, 55:3000};
+
+let deviceRole = null;
+let onlineMode = false;
+
+let mode = 'lampo';
+let teamCount = 8;
+let teams = [];
+let rolesConfig = {P:3,D:8,C:8,A:6};
+let budgetStart = 500;
+let speedMs = 100;
+let increment = 1;
+let muted = false;
+
+let currentRole = 'D';
+let auction = {
+  player:'', startPrice:0, current:0, running:false, tickId:null, leaderIdx:null,
+  remaining:0, duration:0, roundId:null, roundStartTime:null, step:1, status:'idle',
+  soldTo:null, soldPrice:null, soldTeamName:null, soldColor:null, reachedMinAt:null, _lastBeepPrice:null
+};
+let log = [];
+let audioCtx = null;
+let activeBuzzListenerRef = null;
+let lastSeenBuzzTs = {};
+
+// ---------- role select ----------
+document.getElementById('roleSingle').onclick = () => enterMode('offline');
+document.getElementById('roleHost').onclick = () => enterMode('host');
+document.getElementById('rolePhone').onclick = () => enterMode('phone');
+
+function enterMode(role){
+  deviceRole = role;
+  onlineMode = (role !== 'offline');
+  document.getElementById('roleSelect').style.display = 'none';
+  document.getElementById('onlineNote').style.display = onlineMode ? 'block' : 'none';
+  if(role === 'phone'){
+    document.getElementById('phoneWait').style.display = 'block';
+    startPhoneWaitListener();
+  } else {
+    document.getElementById('setup').style.display = 'block';
+  }
+}
+document.getElementById('setupBackLink').onclick = () => {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('roleSelect').style.display = 'block';
+};
+document.getElementById('phoneWaitBack').onclick = () => {
+  configRef.off();
+  document.getElementById('phoneWait').style.display = 'none';
+  document.getElementById('roleSelect').style.display = 'block';
+};
+document.getElementById('wipeDataBtn').onclick = () => {
+  if(confirm("Cancellare i dati dell'asta precedente su Firebase? Non si può annullare.")){
+    db.ref('asta').remove();
+    alert('Fatto. Puoi avviare una nuova asta.');
+  }
+};
+
+// ---------- audio ----------
+function beep(freq, dur){
+  if(muted) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.frequency.value = freq; o.type = 'triangle'; g.gain.value = 0.08;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.stop(audioCtx.currentTime + dur);
+  }catch(e){}
+}
+
+// ---------- auction mode ----------
+const modeLampoCard = document.getElementById('modeLampoCard');
+const modeNormaleCard = document.getElementById('modeNormaleCard');
+modeLampoCard.onclick = () => setAuctionMode('lampo');
+modeNormaleCard.onclick = () => setAuctionMode('normale');
+function setAuctionMode(m){
+  mode = m;
+  modeLampoCard.classList.toggle('active', m==='lampo');
+  modeNormaleCard.classList.toggle('active', m==='normale');
+  document.getElementById('incrementRow').style.display = m==='normale' ? 'flex' : 'none';
+  document.getElementById('speedLabel').textContent = m==='normale' ? "Tempo prima dell'aggiudicazione" : 'Velocità del countdown';
+  document.getElementById('helpBoxLampo').style.display = 'none';
+  document.getElementById('helpBoxNormale').style.display = 'none';
+}
+
+// ---------- setup: teams ----------
+const teamCountGrid = document.getElementById('teamCountGrid');
+for(let n=2; n<=10; n++){
+  const b = document.createElement('button');
+  b.textContent = n;
+  if(n===teamCount) b.classList.add('active');
+  b.onclick = () => { teamCount = n; renderTeamCountGrid(); renderTeamNamesList(); };
+  teamCountGrid.appendChild(b);
+}
+function renderTeamCountGrid(){ [...teamCountGrid.children].forEach((b,i)=> b.classList.toggle('active', (i+2)===teamCount)); }
+function renderTeamNamesList(){
+  const list = document.getElementById('teamNamesList');
+  list.innerHTML = '';
+  for(let i=0;i<teamCount;i++){
+    const row = document.createElement('div');
+    row.className = 'team-setup-row';
+    const sw = document.createElement('div'); sw.className = 'swatch'; sw.style.background = PALETTE[i];
+    const key = document.createElement('div'); key.className = 'key-badge'; key.textContent = KEYS[i];
+    const input = document.createElement('input'); input.type = 'text';
+    input.placeholder = 'Nome squadra ' + (i+1); input.id = 'teamname-'+i;
+    row.appendChild(sw); row.appendChild(key); row.appendChild(input);
+    list.appendChild(row);
+  }
+}
+renderTeamNamesList();
+
+document.getElementById('helpToggle').onclick = () => {
+  const box = mode==='normale' ? document.getElementById('helpBoxNormale') : document.getElementById('helpBoxLampo');
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+};
+
+document.getElementById('startAuctionBtn').onclick = () => {
+  budgetStart = Math.max(1, parseInt(document.getElementById('budgetInput').value) || 500);
+  speedMs = parseInt(document.getElementById('speedInput').value);
+  increment = Math.max(1, parseInt(document.getElementById('incrementInput').value) || 1);
+  rolesConfig = {
+    P: Math.max(0, parseInt(document.getElementById('slotP').value) || 0),
+    D: Math.max(0, parseInt(document.getElementById('slotD').value) || 0),
+    C: Math.max(0, parseInt(document.getElementById('slotC').value) || 0),
+    A: Math.max(0, parseInt(document.getElementById('slotA').value) || 0),
+  };
+  teams = [];
+  for(let i=0;i<teamCount;i++){
+    const nameInput = document.getElementById('teamname-'+i);
+    const name = (nameInput.value.trim()) || ('Squadra ' + (i+1));
+    teams.push({ name, color: PALETTE[i], key: KEYS[i], budget: budgetStart, roster: {P:[],D:[],C:[],A:[]} });
+  }
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('live').style.display = 'block';
+  document.getElementById('modeTag').textContent = mode==='lampo' ? '⚡ Modalità Lampo' : '📢 Modalità Normale';
+  document.getElementById('actionVerb').textContent = mode==='lampo' ? 'aggiudicarti' : 'rilanciare';
+  document.getElementById('startPriceLabel').textContent = mode==='lampo' ? 'Prezzo partenza' : 'Prezzo minimo';
+  document.getElementById('timerTrack').style.display = mode==='normale' ? 'block' : 'none';
+
+  if(onlineMode){
+    const banner = document.getElementById('onlineBanner');
+    banner.style.display = 'block';
+    banner.textContent = "Modalità condivisa attiva: manda il link a ogni allenatore, sceglieranno \"Allenatore — telefono\" e poi la propria squadra.";
+    publishConfigAndTeams();
+  }
+
+  renderTeamsGrid();
+  renderProgress();
+  document.getElementById('playerNameInput').focus();
+};
+
+// ---------- role picker P/D/C/A ----------
+const rolePicker = document.getElementById('rolePicker');
+[...rolePicker.children].forEach(btn => {
+  btn.onclick = () => {
+    currentRole = btn.dataset.role;
+    [...rolePicker.children].forEach(b=>b.classList.toggle('active', b===btn));
+  };
+});
+rolePicker.children[1].classList.add('active');
+
+// ---------- shared helpers ----------
+function totalSlots(){ return Object.keys(rolesConfig).reduce((s,r)=> s + rolesConfig[r], 0); }
+function slotsLeft(team, role){ return rolesConfig[role] - team.roster[role].length; }
+function totalSlotsLeft(team){ return Object.keys(rolesConfig).reduce((s,r)=> s + slotsLeft(team,r), 0); }
+function canBid(team, role, price){
+  if(slotsLeft(team, role) <= 0) return false;
+  if(team.budget < price) return false;
+  const remainingAfter = totalSlotsLeft(team) - 1;
+  if(team.budget - price < remainingAfter) return false;
+  return true;
+}
+function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ---------- host: teams grid ----------
+function renderTeamsGrid(){
+  const grid = document.getElementById('teamsGrid');
+  grid.innerHTML = '';
+  teams.forEach((team, idx) => {
+    const card = document.createElement('div');
+    card.className = 'team-card'; card.id = 'team-card-'+idx; card.style.borderColor = team.color;
+    card.innerHTML = `
+      <div class="team-card-top">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="swatch" style="background:${team.color}; width:20px;height:20px;"></div>
+          <div class="team-card-name">${escapeHtml(team.name)}</div>
+        </div>
+        <div class="key-badge">${team.key}</div>
+      </div>
+      <div class="team-card-budget">${team.budget} cr</div>
+      <div class="team-card-slots">
+        ${Object.keys(rolesConfig).map(r => `<span class="slot-pill">${r} ${team.roster[r].length}/${rolesConfig[r]}</span>`).join('')}
+      </div>`;
+    card.onclick = () => attemptBuzz(idx);
+    grid.appendChild(card);
+  });
+  updateTeamCardsValidity();
+}
+function nextBidPrice(team){
+  if(mode==='lampo') return auction.current;
+  return auction.leaderIdx===null ? auction.current : auction.current + increment;
+}
+function updateTeamCardsValidity(){
+  teams.forEach((team, idx) => {
+    const card = document.getElementById('team-card-'+idx);
+    if(!card) return;
+    if(mode==='normale' && auction.leaderIdx===idx){ card.classList.add('leading'); card.classList.add('invalid'); return; }
+    card.classList.remove('leading');
+    const price = nextBidPrice(team);
+    const ok = auction.running && canBid(team, currentRole, price);
+    card.classList.toggle('invalid', auction.running && !ok);
+  });
+}
+function renderProgress(){
+  const filled = teams.reduce((s,t)=> s + Object.keys(rolesConfig).reduce((ss,r)=>ss+t.roster[r].length,0), 0);
+  const total = teams.length * totalSlots();
+  document.getElementById('progressLabel').textContent = `Slot assegnati: ${filled} / ${total}`;
+}
+
+// ---------- host: auction flow ----------
+const stagePrice = document.getElementById('stagePrice');
+const stagePlayerName = document.getElementById('stagePlayerName');
+const stageRole = document.getElementById('stageRole');
+const soldBanner = document.getElementById('soldBanner');
+const unsoldBanner = document.getElementById('unsoldBanner');
+const unsoldActions = document.getElementById('unsoldActions');
+const viaBtn = document.getElementById('viaBtn');
+const leaderLine = document.getElementById('leaderLine');
+const timerFill = document.getElementById('timerFill');
+
+document.getElementById('playerNameInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') startRound(); });
+viaBtn.onclick = startRound;
+
+function startRound(){
+  const name = document.getElementById('playerNameInput').value.trim();
+  const startPrice = Math.max(1, parseInt(document.getElementById('startPriceInput').value) || 1);
+  if(!name){ document.getElementById('playerNameInput').focus(); return; }
+  if(auction.running) return;
+
+  auction.player = name;
+  auction.startPrice = startPrice;
+  auction.current = startPrice;
+  auction.running = true;
+  auction.leaderIdx = null;
+  auction.status = 'running';
+  auction.roundId = 'r' + Date.now() + '-' + Math.floor(Math.random()*10000);
+  auction.reachedMinAt = null;
+  auction._lastBeepPrice = null;
+  lastSeenBuzzTs = {};
+
+  stagePlayerName.textContent = name;
+  stageRole.textContent = ROLE_NAMES[currentRole];
+  soldBanner.style.display = 'none';
+  unsoldBanner.style.display = 'none';
+  unsoldActions.style.display = 'none';
+  leaderLine.textContent = '';
+  stagePrice.classList.remove('urgent','critical');
+  updatePriceDisplay();
+  viaBtn.disabled = true;
+
+  if(onlineMode){
+    if(activeBuzzListenerRef) activeBuzzListenerRef.off();
+    activeBuzzListenerRef = buzzRef(auction.roundId);
+    activeBuzzListenerRef.on('value', handleBuzzSnapshot);
+  }
+
+  if(mode==='lampo') startLampoTicker(startPrice);
+  else startNormaleTimer();
+
+  updateTeamCardsValidity();
+}
+
+function startLampoTicker(startPrice){
+  const targetTicks = 46;
+  auction.step = Math.max(1, Math.round(startPrice / targetTicks));
+  auction.roundStartTime = Date.now();
+  if(onlineMode) publishRound();
+  auction.tickId = setInterval(renderLampoFrame, 60);
+}
+function renderLampoFrame(){
+  const elapsed = Date.now() - auction.roundStartTime;
+  const ticks = Math.floor(elapsed / speedMs);
+  const price = Math.max(1, auction.startPrice - auction.step*ticks);
+  auction.current = price;
+  updatePriceDisplay();
+  if(price <= auction.startPrice*0.5) stagePrice.classList.add('urgent');
+  if(price <= Math.max(1, auction.startPrice*0.18)) stagePrice.classList.add('critical');
+  if(price <= 6 && price !== auction._lastBeepPrice){ beep(300+price*20,0.05); auction._lastBeepPrice = price; }
+  if(price <= 1){
+    if(!auction.reachedMinAt) auction.reachedMinAt = Date.now();
+    if(Date.now() - auction.reachedMinAt > speedMs*3){ clearInterval(auction.tickId); onNoBuzz(); }
+  } else { auction.reachedMinAt = null; }
+}
+
+function startNormaleTimer(){
+  auction.duration = NORMALE_DURATION[speedMs] || 5000;
+  auction.roundStartTime = Date.now();
+  timerFill.style.width = '100%'; timerFill.style.background = 'var(--gold)';
+  if(onlineMode) publishRound();
+  auction.tickId = setInterval(() => {
+    const elapsed = Date.now() - auction.roundStartTime;
+    const remaining = auction.duration - elapsed;
+    const pct = Math.max(0, (remaining/auction.duration)*100);
+    timerFill.style.width = pct + '%';
+    if(pct < 30) timerFill.style.background = 'var(--red)';
+    else if(pct < 60) timerFill.style.background = 'var(--amber)';
+    if(remaining <= 0){ clearInterval(auction.tickId); finishNormaleRound(); }
+  }, 100);
+}
+function finishNormaleRound(){
+  auction.running = false;
+  if(auction.leaderIdx !== null) finalizeSale(auction.leaderIdx);
+  else onNoBuzz();
+}
+
+function updatePriceDisplay(){ stagePrice.textContent = auction.current; }
+
+function onNoBuzz(){
+  auction.running = false;
+  auction.status = 'unsold';
+  unsoldBanner.style.display = 'block';
+  unsoldActions.style.display = 'flex';
+  updateTeamCardsValidity();
+  beep(140, 0.3);
+  if(onlineMode) publishRound();
+}
+
+document.getElementById('retryBtn').onclick = () => {
+  unsoldBanner.style.display = 'none';
+  unsoldActions.style.display = 'none';
+  viaBtn.disabled = false;
+  document.getElementById('startPriceInput').focus();
+};
+document.getElementById('markUnsoldBtn').onclick = () => {
+  log.unshift({type:'unsold', player: auction.player, role: currentRole});
+  renderLog();
+  if(onlineMode) publishLog();
+  resetForNextPlayer();
+};
+
+function attemptBuzz(idx){
+  if(!auction.running) return false;
+  const team = teams[idx];
+
+  if(mode==='lampo'){
+    if(!canBid(team, currentRole, auction.current)){ flashInvalid(idx); return false; }
+    clearInterval(auction.tickId);
+    auction.running = false;
+    finalizeSale(idx);
+    return true;
+  }
+
+  if(auction.leaderIdx === idx) return false;
+  const price = nextBidPrice(team);
+  if(!canBid(team, currentRole, price)){ flashInvalid(idx); return false; }
+  auction.current = price;
+  auction.leaderIdx = idx;
+  auction.roundStartTime = Date.now();
+  updatePriceDisplay();
+  leaderLine.textContent = `In testa: ${team.name} a ${auction.current} cr`;
+  leaderLine.style.color = team.color;
+  updateTeamCardsValidity();
+  beep(500, 0.08);
+  timerFill.style.width = '100%'; timerFill.style.background = 'var(--gold)';
+  if(onlineMode) publishRound();
+  return true;
+}
+
+function flashInvalid(idx){
+  const card = document.getElementById('team-card-'+idx);
+  if(card){ card.style.setProperty('--flash-color', '#D8412F'); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+}
+
+function finalizeSale(idx){
+  const team = teams[idx];
+  team.budget -= auction.current;
+  team.roster[currentRole].push({name: auction.player, price: auction.current});
+
+  const card = document.getElementById('team-card-'+idx);
+  if(card){ card.style.setProperty('--flash-color', team.color); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+
+  soldBanner.style.display = 'block';
+  soldBanner.style.background = team.color + '22';
+  soldBanner.style.color = team.color;
+  soldBanner.textContent = `${team.name} — ${auction.player} per ${auction.current} crediti`;
+  beep(700, 0.15);
+
+  auction.status = 'sold';
+  auction.soldTo = idx;
+  auction.soldPrice = auction.current;
+  auction.soldTeamName = team.name;
+  auction.soldColor = team.color;
+
+  log.unshift({type:'sold', player: auction.player, role: currentRole, team: team.name, color: team.color, price: auction.current});
+  renderLog();
+  renderTeamsGrid();
+  renderProgress();
+
+  if(onlineMode){ publishTeams(); publishLog(); publishRound(); }
+
+  setTimeout(resetForNextPlayer, 1400);
+}
+
+function resetForNextPlayer(){
+  document.getElementById('playerNameInput').value = '';
+  document.getElementById('startPriceInput').value = mode==='lampo' ? 20 : 1;
+  stagePlayerName.textContent = 'In attesa del prossimo giocatore…';
+  stageRole.textContent = '—';
+  stagePrice.textContent = '—';
+  stagePrice.classList.remove('urgent','critical');
+  leaderLine.textContent = '';
+  timerFill.style.width = '100%'; timerFill.style.background = 'var(--gold)';
+  soldBanner.style.display = 'none';
+  unsoldBanner.style.display = 'none';
+  unsoldActions.style.display = 'none';
+  viaBtn.disabled = false;
+
+  auction.status = 'idle';
+  auction.roundId = null;
+  auction.player = '';
+  auction.leaderIdx = null;
+  auction.soldTo = null;
+  auction.current = 0;
+  auction.roundStartTime = null;
+
+  updateTeamCardsValidity();
+  if(onlineMode) publishRound();
+  document.getElementById('playerNameInput').focus();
+}
+
+function renderLog(){
+  const panel = document.getElementById('logPanel');
+  if(log.length === 0){ panel.innerHTML = '<div class="small-note">Ancora nessuna assegnazione.</div>'; return; }
+  panel.innerHTML = log.map(entry => {
+    if(entry.type === 'sold'){
+      return `<div class="log-row"><span><span class="pname">${escapeHtml(entry.player)}</span> (${entry.role})</span><span style="color:${entry.color}">${escapeHtml(entry.team)} · ${entry.price} cr</span></div>`;
+    }
+    return `<div class="log-row"><span><span class="pname">${escapeHtml(entry.player)}</span> (${entry.role})</span><span>invenduto</span></div>`;
+  }).join('');
+}
+
+// ---------- host: local keyboard buzzer ----------
+document.addEventListener('keydown', (e) => {
+  if(deviceRole === 'phone') return;
+  if(document.activeElement && (document.activeElement.tagName === 'INPUT')) return;
+  if(!auction.running) return;
+  const key = e.key.toUpperCase();
+  const idx = KEYS.indexOf(key);
+  if(idx < 0 || idx >= teams.length) return;
+  attemptBuzz(idx);
+});
+
+document.getElementById('muteBtn').onclick = (e) => {
+  muted = !muted;
+  e.target.textContent = muted ? '🔇 Audio' : '🔊 Audio';
+};
+
+// ---------- host: publish to Firebase ----------
+function publishConfigAndTeams(){
+  configRef.set({
+    mode, rolesConfig, budgetStart, speedMs, increment,
+    teamNames: teams.map(t => ({name:t.name, color:t.color})),
+    startedAt: Date.now()
+  });
+  publishTeams();
+}
+function publishTeams(){
+  teamsRef.set(teams.map(t => ({name:t.name, color:t.color, budget:t.budget, roster:t.roster})));
+}
+function publishLog(){ logRef.set(log.slice(0,20)); }
+function publishRound(){
+  roundRef.set({
+    roundId: auction.roundId,
+    status: auction.running ? 'running' : (auction.status || 'idle'),
+    mode, player: auction.player, role: currentRole,
+    startPrice: auction.startPrice, step: auction.step || 1, tickMs: speedMs,
+    roundStartTime: auction.roundStartTime, duration: auction.duration,
+    leaderIdx: auction.leaderIdx, currentPrice: auction.current,
+    soldTo: auction.soldTo, soldPrice: auction.soldPrice,
+    soldTeamName: auction.soldTeamName, soldColor: auction.soldColor,
+    updatedAt: Date.now()
+  });
+}
+
+// ---------- host: realtime buzz listener ----------
+function handleBuzzSnapshot(snapshot){
+  if(!auction.running) return;
+  const obj = snapshot.val() || {};
+  const candidates = [];
+  for(const idxStr in obj){
+    const idx = parseInt(idxStr);
+    if(mode==='normale' && idx === auction.leaderIdx) continue;
+    const ts = obj[idxStr];
+    if(typeof ts !== 'number') continue;
+    if(!lastSeenBuzzTs[idx] || ts > lastSeenBuzzTs[idx]){
+      candidates.push({idx, ts});
+      lastSeenBuzzTs[idx] = ts;
+    }
+  }
+  if(candidates.length === 0) return;
+  candidates.sort((a,b) => a.ts - b.ts);
+  for(const c of candidates){
+    if(!auction.running) break;
+    attemptBuzz(c.idx);
+  }
+}
+
+// ---------- host: end auction ----------
+document.getElementById('endAuctionBtn').onclick = showSummary;
+function showSummary(){
+  document.getElementById('live').style.display = 'none';
+  document.getElementById('summary').style.display = 'block';
+  if(onlineMode){
+    auction.status = 'ended';
+    publishRound();
+    if(activeBuzzListenerRef) activeBuzzListenerRef.off();
+  }
+  const content = document.getElementById('summaryContent');
+  content.innerHTML = teams.map(team => {
+    const rows = Object.keys(rolesConfig).map(r =>
+      team.roster[r].map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${r}</td><td>${p.price} cr</td></tr>`).join('')
+    ).join('');
+    const spent = budgetStart - team.budget;
+    return `
+      <h3 style="color:${team.color}; margin:22px 0 8px;">${escapeHtml(team.name)} — ${team.budget} cr rimasti (${spent} spesi)</h3>
+      <table class="summary-table">
+        <thead><tr><th>Giocatore</th><th>Ruolo</th><th>Prezzo</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">Nessun giocatore acquistato</td></tr>'}</tbody>
+      </table>`;
+  }).join('');
+}
+document.getElementById('restartBtn').onclick = () => { location.reload(); };
+
+// =====================================================================
+// PHONE (allenatore)
+// =====================================================================
+let phoneConfig = null;
+let myTeamIdx = null, myTeamName = '', myColor = '';
+let currentTeamsDoc = null, currentRoundDoc = null;
+let lastAnnouncedSoldRoundId = null;
+
+function startPhoneWaitListener(){
+  configRef.on('value', (snap) => {
+    const cfg = snap.val();
+    if(cfg){
+      configRef.off();
+      phoneConfig = cfg;
+      showPhoneTeamSelect(cfg);
+    }
+  });
+}
+
+function showPhoneTeamSelect(cfg){
+  document.getElementById('phoneWait').style.display = 'none';
+  document.getElementById('phoneTeamSelect').style.display = 'block';
+  const box = document.getElementById('phoneTeamButtons');
+  box.innerHTML = '';
+  cfg.teamNames.forEach((t, idx) => {
+    const b = document.createElement('button');
+    b.className = 'phone-team-btn';
+    b.style.borderColor = t.color;
+    b.textContent = t.name;
+    b.onclick = () => selectPhoneTeam(idx, t);
+    box.appendChild(b);
+  });
+}
+
+function selectPhoneTeam(idx, t){
+  myTeamIdx = idx; myTeamName = t.name; myColor = t.color;
+  document.getElementById('phoneTeamSelect').style.display = 'none';
+  document.getElementById('phoneBuzzer').style.display = 'block';
+  document.getElementById('phoneTeamName').textContent = myTeamName;
+  document.getElementById('phoneTeamName').style.color = myColor;
+  const btn = document.getElementById('phoneBuzzBtn');
+  btn.style.background = myColor;
+  btn.onclick = phoneSendBuzz;
+
+  teamsRef.on('value', (snap) => { currentTeamsDoc = snap.val(); renderPhoneUI(); });
+  roundRef.on('value', (snap) => { currentRoundDoc = snap.val(); renderPhoneUI(); });
+  setInterval(renderPhoneUI, 200); // per far scorrere fluidamente prezzo/timer calcolati localmente
+}
+
+function renderPhoneUI(){
+  if(currentTeamsDoc && currentTeamsDoc[myTeamIdx]){
+    const t = currentTeamsDoc[myTeamIdx];
+    document.getElementById('phoneBudget').textContent = t.budget + ' cr';
+    document.getElementById('phoneSlots').innerHTML = Object.keys(t.roster).map(r => `<span class="slot-pill">${r} ${t.roster[r].length}</span>`).join('');
+  }
+  const btn = document.getElementById('phoneBuzzBtn');
+  if(!currentRoundDoc){ btn.disabled = true; return; }
+  const r = currentRoundDoc;
+
+  if(r.status === 'ended'){
+    document.getElementById('phoneRoundPlayer').textContent = 'Asta terminata. Grazie! 🎉';
+    document.getElementById('phoneRoundRole').textContent = '—';
+    document.getElementById('phonePrice').textContent = '—';
+    document.getElementById('phoneTimerTrack').style.display = 'none';
+    document.getElementById('phoneLeaderLine').textContent = '';
+    btn.disabled = true; btn.textContent = 'ASTA CHIUSA';
+    return;
+  }
+
+  document.getElementById('phoneRoundRole').textContent = r.role ? ROLE_NAMES[r.role] : '—';
+  document.getElementById('phoneRoundPlayer').textContent = r.player || 'In attesa del prossimo giocatore…';
+
+  if(r.mode === 'lampo'){
+    document.getElementById('phoneTimerTrack').style.display = 'none';
+    document.getElementById('phoneLeaderLine').textContent = '';
+    if(r.status === 'running' && r.roundStartTime){
+      const elapsed = Date.now() - r.roundStartTime;
+      const ticks = Math.floor(elapsed / r.tickMs);
+      const price = Math.max(1, r.startPrice - r.step*ticks);
+      document.getElementById('phonePrice').textContent = price;
+    } else if(r.status === 'sold'){
+      document.getElementById('phonePrice').textContent = r.soldPrice;
+    } else {
+      document.getElementById('phonePrice').textContent = '—';
+    }
+  } else {
+    document.getElementById('phoneTimerTrack').style.display = r.status === 'running' ? 'block' : 'none';
+    document.getElementById('phonePrice').textContent = (r.status === 'idle') ? '—' : r.currentPrice;
+    if(r.leaderIdx !== null && r.leaderIdx !== undefined && currentTeamsDoc && currentTeamsDoc[r.leaderIdx]){
+      const lt = currentTeamsDoc[r.leaderIdx];
+      document.getElementById('phoneLeaderLine').textContent = 'In testa: ' + lt.name;
+      document.getElementById('phoneLeaderLine').style.color = lt.color;
+    } else {
+      document.getElementById('phoneLeaderLine').textContent = '';
+    }
+    if(r.status === 'running' && r.roundStartTime && r.duration){
+      const elapsed = Date.now() - r.roundStartTime;
+      const remaining = Math.max(0, r.duration - elapsed);
+      const pct = (remaining / r.duration) * 100;
+      document.getElementById('phoneTimerFill').style.width = pct + '%';
+    }
+  }
+
+  const iAmLeader = (r.mode === 'normale' && r.leaderIdx === myTeamIdx);
+  btn.disabled = !(r.status === 'running') || iAmLeader;
+  btn.textContent = iAmLeader ? 'SEI IN TESTA' : 'SUONA';
+
+  if(r.status === 'sold' && r.roundId !== lastAnnouncedSoldRoundId){
+    lastAnnouncedSoldRoundId = r.roundId;
+    if(r.soldTo === myTeamIdx) phoneFeedback('🎉 Preso! ' + r.player + ' per ' + r.soldPrice + ' cr');
+  }
+}
+
+function phoneSendBuzz(){
+  if(!currentRoundDoc || !currentRoundDoc.roundId || currentRoundDoc.status !== 'running') return;
+  buzzRef(currentRoundDoc.roundId).child(String(myTeamIdx)).set(firebase.database.ServerValue.TIMESTAMP);
+  phoneFeedback('📡 Inviato!');
+  if(navigator.vibrate) navigator.vibrate(40);
+}
+
+function phoneFeedback(msg){
+  const el = document.getElementById('phoneFeedback');
+  el.textContent = msg;
+  setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 2500);
+}
+</script>
+</body>
+</html>
